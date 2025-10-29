@@ -1,0 +1,235 @@
+@import "tailwindcss";
+@import "tw-animate-css";
+
+@custom-variant dark (&:is(.dark *));
+
+:root {
+  /* Core colors - simple dark mode */
+  --background: #0e103d;
+  --foreground: #eef3ff;
+
+  /* Card and UI structure - subtle elevation */
+  --card: #1a1d5a;
+  --card-foreground: #eef3ff;
+  --popover: #1a1d5a;
+  --popover-foreground: #eef3ff;
+
+  /* Primary - muted blue-gray instead of bright blue */
+  --primary: #6b7db8;
+  --primary-foreground: #ffffff;
+  --primary-hover: #8091c4;
+
+  /* Secondary - soft gray-blue */
+  --secondary: #4a5578;
+  --secondary-foreground: #eef3ff;
+
+  /* Muted states */
+  --muted: rgba(42, 47, 111, 0.4);
+  --muted-foreground: #8b9dc3;
+
+  /* Accent - subtle purple instead of bright coral */
+  --accent: #9b8fc7;
+  --accent-foreground: #ffffff;
+
+  /* Destructive - muted red */
+  --destructive: #c97a7a;
+  --destructive-foreground: #ffffff;
+
+  /* Success - muted green */
+  --success: #7fb89a;
+  --success-foreground: #ffffff;
+
+  /* Warning - muted gold */
+  --warning: #c9a86a;
+  --warning-foreground: #ffffff;
+
+  /* Borders and inputs - subtle */
+  --border: #2a2f6f;
+  --input: #2a2f6f;
+  --ring: #6b7db8;
+
+  /* Hover and interactive states */
+  --hover: #252a70;
+  --highlight: rgba(107, 125, 184, 0.1);
+
+  /* Updated energy level colors to light purple and pale mint green */
+  --energy-low: #e8b8fe; /* Light purple for low energy */
+  --energy-low-bg: rgba(232, 184, 254, 0.15);
+  --energy-high: #cefeb8; /* Pale mint green for high energy */
+  --energy-high-bg: rgba(206, 254, 184, 0.15);
+
+  /* Chart colors - muted palette */
+  --chart-1: #6b7db8;
+  --chart-2: #9b8fc7;
+  --chart-3: #7fb89a;
+  --chart-4: #c9a86a;
+  --chart-5: #c97a7a;
+
+  --radius: 0.75rem;
+
+  /* Sidebar colors */
+  --sidebar: #1a1d5a;
+  --sidebar-foreground: #eef3ff;
+  --sidebar-primary: #6b7db8;
+  --sidebar-primary-foreground: #ffffff;
+  --sidebar-accent: rgba(107, 125, 184, 0.1);
+  --sidebar-accent-foreground: #eef3ff;
+  --sidebar-border: #2a2f6f;
+  --sidebar-ring: #6b7db8;
+}
+
+.dark {
+  --background: #0e103d;
+  --foreground: #eef3ff;
+  --card: #1a1d5a;
+  --card-foreground: #eef3ff;
+  --popover: #1a1d5a;
+  --popover-foreground: #eef3ff;
+  --primary: #6b7db8;
+  --primary-foreground: #ffffff;
+  --primary-hover: #8091c4;
+  --secondary: #4a5578;
+  --secondary-foreground: #eef3ff;
+  --muted: rgba(42, 47, 111, 0.4);
+  --muted-foreground: #8b9dc3;
+  --accent: #9b8fc7;
+  --accent-foreground: #ffffff;
+  --destructive: #c97a7a;
+  --destructive-foreground: #ffffff;
+  --success: #7fb89a;
+  --success-foreground: #ffffff;
+  --warning: #c9a86a;
+  --warning-foreground: #ffffff;
+  --border: #2a2f6f;
+  --input: #2a2f6f;
+  --ring: #6b7db8;
+  --hover: #252a70;
+  --highlight: rgba(107, 125, 184, 0.1);
+  /* Updated energy level colors in dark mode */
+  --energy-low: #e8b8fe;
+  --energy-low-bg: rgba(232, 184, 254, 0.15);
+  --energy-high: #cefeb8;
+  --energy-high-bg: rgba(206, 254, 184, 0.15);
+  --chart-1: #6b7db8;
+  --chart-2: #9b8fc7;
+  --chart-3: #7fb89a;
+  --chart-4: #c9a86a;
+  --chart-5: #c97a7a;
+  --sidebar: #1a1d5a;
+  --sidebar-foreground: #eef3ff;
+  --sidebar-primary: #6b7db8;
+  --sidebar-primary-foreground: #ffffff;
+  --sidebar-accent: rgba(107, 125, 184, 0.1);
+  --sidebar-accent-foreground: #eef3ff;
+  --sidebar-border: #2a2f6f;
+  --sidebar-ring: #6b7db8;
+}
+
+@theme inline {
+  --font-sans: var(--font-geist-sans);
+  --font-mono: var(--font-geist-mono);
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-card: var(--card);
+  --color-card-foreground: var(--card-foreground);
+  --color-popover: var(--popover);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-primary: var(--primary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-secondary: var(--secondary);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-muted: var(--muted);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-accent: var(--accent);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-destructive: var(--destructive);
+  --color-destructive-foreground: var(--destructive-foreground);
+  --color-success: var(--success);
+  --color-success-foreground: var(--success-foreground);
+  --color-warning: var(--warning);
+  --color-warning-foreground: var(--warning-foreground);
+  --color-border: var(--border);
+  --color-input: var(--input);
+  --color-ring: var(--ring);
+  --color-hover: var(--hover);
+  --color-highlight: var(--highlight);
+  --color-primary-hover: var(--primary-hover);
+  --color-energy-low: var(--energy-low);
+  --color-energy-low-bg: var(--energy-low-bg);
+  --color-energy-high: var(--energy-high);
+  --color-energy-high-bg: var(--energy-high-bg);
+  --color-chart-1: var(--chart-1);
+  --color-chart-2: var(--chart-2);
+  --color-chart-3: var(--chart-3);
+  --color-chart-4: var(--chart-4);
+  --color-chart-5: var(--chart-5);
+  --radius-sm: calc(var(--radius) - 4px);
+  --radius-md: calc(var(--radius) - 2px);
+  --radius-lg: var(--radius);
+  --radius-xl: calc(var(--radius) + 4px);
+  --color-sidebar: var(--sidebar);
+  --color-sidebar-foreground: var(--sidebar-foreground);
+  --color-sidebar-primary: var(--sidebar-primary);
+  --color-sidebar-primary-foreground: var(--sidebar-primary-foreground);
+  --color-sidebar-accent: var(--sidebar-accent);
+  --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
+  --color-sidebar-border: var(--sidebar-border);
+  --color-sidebar-ring: var(--sidebar-ring);
+}
+
+@layer base {
+  * {
+    @apply border-border outline-ring/50;
+  }
+  body {
+    @apply bg-background text-foreground;
+  }
+  h1,
+  h2,
+  h3,
+  h4,
+  h5,
+  h6 {
+    @apply text-foreground;
+  }
+  a {
+    color: #6b7db8;
+    transition: color 0.2s ease-in-out;
+  }
+  a:hover {
+    color: #8091c4;
+  }
+}
+
+.highlight-box {
+  background-color: var(--highlight);
+  border: 1px solid var(--border);
+}
+
+@keyframes slide-up {
+  from {
+    transform: translateY(10px);
+    opacity: 0;
+  }
+  to {
+    transform: translateY(0);
+    opacity: 1;
+  }
+}
+
+.animate-slide-up {
+  animation: slide-up 0.3s ease-out;
+}
+
+/* Custom Switch styling */
+[role="switch"][data-state="checked"] {
+  background-color: #cefeb8 !important; /* High energy green when toggled on */
+}
+
+[role="switch"] [data-state="checked"] {
+  background-color: #eef3ff !important; /* Light color for the thumb/circle */
+}
+
+[role="switch"] [data-state="unchecked"] {
+  background-color: #eef3ff !important; /* Light color for the thumb/circle */
+}
