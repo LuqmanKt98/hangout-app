@@ -234,9 +234,15 @@ export async function getFriendsAvailability() {
       return []
     }
 
-    // Filter out past events
+    // Filter out past events and the current user's own availability
     const now = new Date()
     const filteredData = (data || []).filter((avail) => {
+      // CRITICAL FIX: Exclude the current user's own availability
+      if (avail.user_id === user.id) {
+        console.log("[v0] getFriendsAvailability - Filtering out own availability:", avail.id)
+        return false
+      }
+
       // Handle times that cross midnight (end_time < start_time)
       let endDateTime = new Date(`${avail.date}T${avail.end_time}`)
       const startDateTime = new Date(`${avail.date}T${avail.start_time}`)
@@ -493,6 +499,37 @@ export async function getAvailabilitySharedFriends(availabilityId: string) {
     }))
   } catch (error) {
     console.error("[v0] Exception in getAvailabilitySharedFriends:", error)
+    return []
+  }
+}
+
+export async function getAvailabilitySharedGroups(availabilityId: string) {
+  try {
+    const supabase = createBrowserClient()
+
+    const { data, error } = await supabase
+      .from("availability_shares")
+      .select(`
+        shared_with_group_id,
+        group:groups(
+          id,
+          name
+        )
+      `)
+      .eq("availability_id", availabilityId)
+      .not("shared_with_group_id", "is", null) // Only get group shares, not individual friend shares
+
+    if (error) {
+      console.error("[v0] Error fetching shared groups:", error)
+      return []
+    }
+
+    return (data || []).map((share: any) => ({
+      id: share.group.id,
+      name: share.group.name,
+    }))
+  } catch (error) {
+    console.error("[v0] Exception in getAvailabilitySharedGroups:", error)
     return []
   }
 }

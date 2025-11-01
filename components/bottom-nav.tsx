@@ -1,19 +1,21 @@
 "use client"
 
-import { Calendar, Clock, Send, User } from "lucide-react"
+import { Calendar, Clock, Send, User, MessageCircle } from "lucide-react"
 import { cn } from "@/lib/utils"
 
 interface BottomNavProps {
-  activeTab: "plans" | "availability" | "requests" | "profile"
-  onTabChange: (tab: "plans" | "availability" | "requests" | "profile") => void
+  activeTab: "plans" | "availability" | "requests" | "chat" | "profile"
+  onTabChange: (tab: "plans" | "availability" | "requests" | "chat" | "profile") => void
   notificationCount?: number
+  chatNotificationCount?: number
 }
 
-export function BottomNav({ activeTab, onTabChange, notificationCount = 0 }: BottomNavProps) {
+export function BottomNav({ activeTab, onTabChange, notificationCount = 0, chatNotificationCount = 0 }: BottomNavProps) {
   const tabs = [
     { id: "plans" as const, label: "Plans", icon: Calendar },
     { id: "availability" as const, label: "My Avales", icon: Clock },
     { id: "requests" as const, label: "Requests", icon: Send },
+    { id: "chat" as const, label: "Chat", icon: MessageCircle },
     { id: "profile" as const, label: "You", icon: User },
   ]
 
@@ -24,7 +26,8 @@ export function BottomNav({ activeTab, onTabChange, notificationCount = 0 }: Bot
           {tabs.map((tab) => {
             const Icon = tab.icon
             const isActive = activeTab === tab.id
-            const showBadge = tab.id === "requests" && notificationCount > 0
+            const showBadge = (tab.id === "requests" && notificationCount > 0) || (tab.id === "chat" && chatNotificationCount > 0)
+            const badgeCount = tab.id === "chat" ? chatNotificationCount : notificationCount
 
             return (
               <button
@@ -42,7 +45,7 @@ export function BottomNav({ activeTab, onTabChange, notificationCount = 0 }: Bot
                   {showBadge && (
                     <div className="absolute -top-1 -right-1 w-4 h-4 bg-destructive rounded-full flex items-center justify-center">
                       <span className="text-[10px] font-bold text-white">
-                        {notificationCount > 9 ? "9+" : notificationCount}
+                        {badgeCount > 9 ? "9+" : badgeCount}
                       </span>
                     </div>
                   )}

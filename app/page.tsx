@@ -4,10 +4,12 @@ import { useState, useEffect } from "react"
 import { PlansTab } from "@/components/tabs/plans-tab"
 import { AvailabilityTab } from "@/components/tabs/availability-tab"
 import { RequestsTab } from "@/components/tabs/requests-tab"
+import { ChatTab } from "@/components/tabs/chat-tab"
 import { ProfileTab } from "@/components/tabs/profile-tab"
 import { BottomNav } from "@/components/bottom-nav"
 import { OnboardingModal } from "@/components/onboarding-modal"
 import { useRealtimeRequests, useRealtimeAvailability } from "@/lib/hooks/use-realtime-updates"
+import { useUnreadMessages } from "@/lib/hooks/use-unread-messages"
 import { createClient } from "@/lib/supabase/client"
 import { ErrorBoundary } from "@/components/error-boundary"
 import { ensureProfileExists } from "@/lib/api/profile"
@@ -16,7 +18,7 @@ import type { SupabaseClient } from "@supabase/supabase-js"
 export const dynamic = "force-dynamic"
 
 function HomeContent() {
-  const [activeTab, setActiveTab] = useState<"plans" | "availability" | "requests" | "profile">("plans")
+  const [activeTab, setActiveTab] = useState<"plans" | "availability" | "requests" | "chat" | "profile">("plans")
   const [userId, setUserId] = useState<string | undefined>(undefined)
   const [isLoading, setIsLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
@@ -91,6 +93,7 @@ function HomeContent() {
 
   const { newRequestCount, resetCount } = useRealtimeRequests(userId)
   const { availabilityUpdated } = useRealtimeAvailability()
+  const { totalUnread } = useUnreadMessages()
 
   useEffect(() => {
     const handleTabSwitch = (event: any) => {
@@ -149,11 +152,12 @@ function HomeContent() {
         {activeTab === "plans" && <PlansTab />}
         {activeTab === "availability" && <AvailabilityTab />}
         {activeTab === "requests" && <RequestsTab />}
+        {activeTab === "chat" && <ChatTab />}
         {activeTab === "profile" && <ProfileTab />}
       </main>
 
       {/* Bottom navigation */}
-      <BottomNav activeTab={activeTab} onTabChange={setActiveTab} notificationCount={newRequestCount} />
+      <BottomNav activeTab={activeTab} onTabChange={setActiveTab} notificationCount={newRequestCount} chatNotificationCount={totalUnread} />
 
       <OnboardingModal open={showOnboarding} onComplete={handleOnboardingComplete} />
     </div>

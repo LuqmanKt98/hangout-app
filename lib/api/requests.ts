@@ -95,8 +95,6 @@ export async function createHangoutRequest(data: {
 export async function updateRequestStatus(requestId: string, status: RequestStatus) {
   const supabase = createBrowserClient()
 
-  console.log("[v0] Updating request status:", requestId, status)
-
   const { data, error } = await supabase
     .from("hangout_requests")
     .update({
@@ -108,11 +106,9 @@ export async function updateRequestStatus(requestId: string, status: RequestStat
     .single()
 
   if (error) {
-    console.error("[v0] Error updating request status:", error)
+    console.error("Error updating request status:", error)
     throw new Error(error.message || "Failed to update request status")
   }
-
-  console.log("[v0] Request status updated successfully:", data)
 
   // Dispatch event to refresh UI
   if (typeof window !== "undefined") {
@@ -146,11 +142,11 @@ export async function getReceivedRequests() {
       data: { user },
     } = await supabase.auth.getUser()
     if (!user) {
-      console.log("[v0] getReceivedRequests: No user found")
+      console.log("[v0] getReceivedRequests: No user logged in")
       return []
     }
 
-    console.log("[v0] getReceivedRequests: Fetching for user:", user.id)
+    console.log("[v0] getReceivedRequests: Querying for receiver_id =", user.id)
 
     const { data, error } = await supabase
       .from("hangout_requests")
@@ -159,10 +155,10 @@ export async function getReceivedRequests() {
       .in("status", ["pending", "accepted"])
       .order("created_at", { ascending: false })
 
-    console.log("[v0] getReceivedRequests: Query result - error:", error, "data:", data)
+    console.log("[v0] getReceivedRequests: Query result - data:", data, "error:", error)
 
     if (error || !data) {
-      console.log("[v0] getReceivedRequests: Error or no data, returning empty array")
+      console.log("[v0] getReceivedRequests: Error or no data returned")
       return []
     }
 
@@ -180,7 +176,7 @@ export async function getReceivedRequests() {
       receiver: profileMap.get(req.receiver_id) || { id: req.receiver_id, display_name: "Unknown", avatar_url: null },
     })) as RequestWithProfile[]
   } catch (error) {
-    console.error("[v0] Error in getReceivedRequests:", error)
+    console.error("Error in getReceivedRequests:", error)
     return []
   }
 }
@@ -192,7 +188,12 @@ export async function getSentRequests() {
     const {
       data: { user },
     } = await supabase.auth.getUser()
-    if (!user) return []
+    if (!user) {
+      console.log("[v0] getSentRequests: No user logged in")
+      return []
+    }
+
+    console.log("[v0] getSentRequests: Querying for sender_id =", user.id)
 
     const { data, error } = await supabase
       .from("hangout_requests")
@@ -201,7 +202,14 @@ export async function getSentRequests() {
       .in("status", ["pending", "accepted"])
       .order("created_at", { ascending: false })
 
-    if (error || !data) return []
+    console.log("[v0] getSentRequests: Query result - data:", data, "error:", error)
+
+    if (error || !data) {
+      console.log("[v0] getSentRequests: Error or no data returned")
+      return []
+    }
+
+    console.log("[v0] getSentRequests: Found", data.length, "requests")
 
     // Get profiles for senders and receivers
     const userIds = [...new Set([...data.map((r) => r.sender_id), ...data.map((r) => r.receiver_id)])]
@@ -223,8 +231,6 @@ export async function getSentRequests() {
 export async function deleteRequest(requestId: string) {
   const supabase = createBrowserClient()
 
-  console.log("[v0] deleteRequest: Attempting to delete request:", requestId)
-
   const { data, error } = await supabase
     .from("hangout_requests")
     .delete()
@@ -232,11 +238,10 @@ export async function deleteRequest(requestId: string) {
     .select()
 
   if (error) {
-    console.error("[v0] deleteRequest: Error deleting request:", error)
+    console.error("Error deleting request:", error)
     throw error
   }
 
-  console.log("[v0] deleteRequest: Successfully deleted request:", data)
   return data
 }
 
@@ -265,10 +270,9 @@ export async function getRequestStatusForAvailability(availabilityId: string) {
       return null
     }
 
-    console.log("[v0] getRequestStatusForAvailability - Found request:", data)
     return data as HangoutRequest | null
   } catch (error) {
-    console.error("[v0] Error in getRequestStatusForAvailability:", error)
+    console.error("Error in getRequestStatusForAvailability:", error)
     return null
   }
 }

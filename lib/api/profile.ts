@@ -26,19 +26,13 @@ export type Profile = {
 export async function ensureProfileExists() {
   const supabase = createBrowserClient()
 
-  console.log("[v0] ensureProfileExists: Starting profile check")
-
   const {
     data: { user },
   } = await supabase.auth.getUser()
 
   if (!user) {
-    console.log("[v0] ensureProfileExists: No user found")
     return null
   }
-
-  console.log("[v0] ensureProfileExists: User found:", user.email, "ID:", user.id)
-  console.log("[v0] ensureProfileExists: User metadata:", user.user_metadata)
 
   // Check if profile exists
   const { data: existingProfile, error: checkError } = await supabase
@@ -47,18 +41,11 @@ export async function ensureProfileExists() {
     .eq("id", user.id)
     .single()
 
-  if (checkError) {
-    console.log("[v0] ensureProfileExists: Error checking profile:", checkError)
-  }
-
   if (existingProfile) {
-    console.log("[v0] ensureProfileExists: Profile already exists")
     return existingProfile
   }
 
   // Profile doesn't exist, create it
-  console.log("[v0] ensureProfileExists: Profile missing, creating new profile for:", user.email)
-
   const profileData = {
     id: user.id,
     email: user.email,
@@ -76,17 +63,13 @@ export async function ensureProfileExists() {
     timezone: getUserTimezone(),
   }
 
-  console.log("[v0] ensureProfileExists: Attempting to insert profile with data:", profileData)
-
   const { data: newProfile, error } = await supabase.from("profiles").insert(profileData).select().single()
 
   if (error) {
-    console.error("[v0] ensureProfileExists: ERROR creating profile:", error)
-    console.error("[v0] ensureProfileExists: Error details:", JSON.stringify(error, null, 2))
+    console.error("Error creating profile:", error)
     throw error
   }
 
-  console.log("[v0] ensureProfileExists: Profile created successfully:", newProfile)
   return newProfile
 }
 
@@ -123,8 +106,6 @@ export async function setAvailableNow(
     data: { user },
   } = await supabase.auth.getUser()
   if (!user) throw new Error("Not authenticated")
-
-  console.log("[v0] setAvailableNow:", { available, energy, durationMinutes, friendIds, startTime24, endTime24 })
 
   const updates: any = {
     available_now: available,
@@ -168,12 +149,7 @@ export async function setAvailableNow(
       endTime = until.toTimeString().split(" ")[0].substring(0, 5) // HH:mm format
     }
 
-    console.log("[v0] Creating availability record:", {
-      date: dateStr,
-      startTime,
-      endTime,
-      energy,
-    })
+
 
     try {
       // Check if an availability record already exists for this user, date, and time
@@ -187,12 +163,9 @@ export async function setAvailableNow(
         .maybeSingle()
 
       if (existingAvailability) {
-        console.log("[v0] Availability already exists:", existingAvailability.id)
         // Share with specific friends if provided
         if (friendIds && friendIds.length > 0) {
-          console.log("[v0] Sharing existing availability with friends:", friendIds)
           await shareAvailabilityWithFriends(existingAvailability.id, friendIds)
-          console.log("[v0] Shared successfully")
         }
       } else {
         const availability = await createAvailability({
@@ -205,17 +178,13 @@ export async function setAvailableNow(
           location: null,
         })
 
-        console.log("[v0] Availability created:", availability.id)
-
         // Share with specific friends if provided
         if (friendIds && friendIds.length > 0) {
-          console.log("[v0] Sharing with friends:", friendIds)
           await shareAvailabilityWithFriends(availability.id, friendIds)
-          console.log("[v0] Shared successfully")
         }
       }
     } catch (error) {
-      console.error("[v0] Error creating availability:", error)
+      console.error("Error creating availability:", error)
       throw error
     }
   } else {
@@ -265,14 +234,9 @@ export async function uploadAvatar(file: File): Promise<string> {
   } = await supabase.auth.getUser()
   if (!user) throw new Error("Not authenticated")
 
-  console.log("[v0] uploadAvatar: Starting upload for user:", user.id)
-  console.log("[v0] uploadAvatar: File name:", file.name, "Size:", file.size, "Type:", file.type)
-
   // Create a unique file name
   const fileExt = file.name.split(".").pop()
   const fileName = `${user.id}/${Date.now()}.${fileExt}`
-
-  console.log("[v0] uploadAvatar: Uploading to path:", fileName)
 
   // Upload the file to Supabase Storage
   const { data, error } = await supabase.storage.from("avatars").upload(fileName, file, {
@@ -281,19 +245,14 @@ export async function uploadAvatar(file: File): Promise<string> {
   })
 
   if (error) {
-    console.error("[v0] uploadAvatar: Upload error:", error)
-    console.error("[v0] uploadAvatar: Error details:", JSON.stringify(error, null, 2))
+    console.error("Error uploading avatar:", error)
     throw error
   }
-
-  console.log("[v0] uploadAvatar: Upload successful, data:", data)
 
   // Get the public URL
   const {
     data: { publicUrl },
   } = supabase.storage.from("avatars").getPublicUrl(fileName)
-
-  console.log("[v0] uploadAvatar: Public URL:", publicUrl)
 
   return publicUrl
 }

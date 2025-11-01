@@ -44,6 +44,8 @@ export async function getConfirmedPlans() {
           return null
         }
 
+        console.log("[v0] getConfirmedPlans - Request status:", request.status, "Request ID:", request.id)
+
         return {
           id: request.id,
           friend: {
@@ -69,7 +71,7 @@ export async function getConfirmedPlans() {
           activity: request.message || "Hangout",
           location: request.availability?.location || "TBD",
           energy: request.availability?.energy_level || "low",
-          status: "confirmed",
+          status: request.status,
           tags: request.availability?.tags || [],
         }
       })
@@ -162,18 +164,37 @@ export async function getFriendsAvailability() {
     // First, fetch all availability records for the given IDs
     const { data, error } = await supabase
       .from("availability")
-      .select(
-        `
-        *,
-        user:profiles(id, display_name, avatar_url, first_name, last_name)
-      `,
-      )
+      .select("*")
       .in("id", availabilityIds)
       .eq("is_active", true)
       .order("date", { ascending: true })
       .order("start_time", { ascending: true })
 
     console.log("[v0] getFriendsAvailability - Raw data from DB:", data?.length || 0, "error:", error)
+
+    // Now fetch the profiles for all the user_ids
+    if (data && data.length > 0) {
+      const userIds = [...new Set(data.map((a: any) => a.user_id))]
+      console.log("[v0] getFriendsAvailability - User IDs to fetch:", userIds)
+
+      const { data: profilesData, error: profilesError } = await supabase
+        .from("profiles")
+        .select("id, display_name, avatar_url, first_name, last_name")
+        .in("id", userIds)
+
+      if (profilesError) {
+        console.error("[v0] Error fetching profiles:", profilesError)
+      } else {
+        console.log("[v0] Fetched profiles:", profilesData?.length || 0)
+        // Create a map of user_id -> profile
+        const profileMap = new Map(profilesData?.map((p: any) => [p.id, p]) || [])
+
+        // Attach profiles to availability records
+        data.forEach((avail: any) => {
+          avail.profiles = profileMap.get(avail.user_id)
+        })
+      }
+    }
 
     if (error) {
       console.error("[v0] Error fetching availability:", {
@@ -187,8 +208,14 @@ export async function getFriendsAvailability() {
 
     console.log("[v0] getFriendsAvailability - Availability records found:", data?.length || 0)
 
-    // Filter out past events (using 'now' variable declared earlier)
+    // Filter out past events and the current user's own availability
     const filteredData = (data || []).filter((avail) => {
+      // CRITICAL FIX: Exclude the current user's own availability
+      if (avail.user_id === user.id) {
+        console.log("[v0] getFriendsAvailability - Filtering out own availability:", avail.id)
+        return false
+      }
+
       // Handle times that cross midnight (end_time < start_time)
       let endDateTime = new Date(`${avail.date}T${avail.end_time}`)
       const startDateTime = new Date(`${avail.date}T${avail.start_time}`)
@@ -203,6 +230,12 @@ export async function getFriendsAvailability() {
     })
 
     console.log("[v0] getFriendsAvailability - After filtering past events:", filteredData.length)
+    console.log("[v0] getFriendsAvailability - Filtered data with profiles:", filteredData.map(a => ({
+      id: a.id,
+      user_id: a.user_id,
+      profile_name: a.profiles?.display_name,
+      profile_id: a.profiles?.id
+    })))
 
     // Fetch request status for each availability
     const availabilityWithRequests = await Promise.all(
@@ -216,12 +249,12 @@ export async function getFriendsAvailability() {
         return {
           id: avail.id,
           friend: {
-            name: avail.user?.display_name || "Unknown",
-            firstName: avail.user?.first_name || "",
-            lastName: avail.user?.last_name || "",
-            avatar: avail.user?.avatar_url || null,
-            initials: avail.user?.display_name
-              ? avail.user.display_name
+            name: avail.profiles?.display_name || "Unknown",
+            firstName: avail.profiles?.first_name || "",
+            lastName: avail.profiles?.last_name || "",
+            avatar: avail.profiles?.avatar_url || null,
+            initials: avail.profiles?.display_name
+              ? avail.profiles.display_name
                   .split(" ")
                   .map((n: string) => n[0])
                   .join("")

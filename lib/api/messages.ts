@@ -6,6 +6,7 @@ export type Message = {
   sender_id: string
   message: string
   created_at: string
+  is_read?: boolean
 }
 
 export type MessageWithProfile = Message & {
@@ -68,8 +69,49 @@ export async function getThreadMessages(threadId: string) {
   return getRequestMessages(threadId)
 }
 
-export async function markMessagesAsRead(threadId: string) {
-  // No read tracking in request_messages table
-  // This is a no-op for compatibility
+export async function markMessagesAsRead(requestId: string) {
+  const supabase = createBrowserClient()
+
+  const {
+    data: { user },
+  } = await supabase.auth.getUser()
+  if (!user) throw new Error("Not authenticated")
+
+  // Mark all unread messages from other users as read
+  const { error } = await supabase
+    .from("request_messages")
+    .update({ is_read: true })
+    .eq("request_id", requestId)
+    .eq("is_read", false)
+    .neq("sender_id", user.id)
+
+  if (error) {
+    console.error("[v0] Error marking messages as read:", error)
+    throw error
+  }
+
   return Promise.resolve()
+}
+
+export async function getUnreadMessageCount(requestId: string) {
+  const supabase = createBrowserClient()
+
+  const {
+    data: { user },
+  } = await supabase.auth.getUser()
+  if (!user) throw new Error("Not authenticated")
+
+  const { count, error } = await supabase
+    .from("request_messages")
+    .select("*", { count: "exact", head: true })
+    .eq("request_id", requestId)
+    .eq("is_read", false)
+    .neq("sender_id", user.id)
+
+  if (error) {
+    console.error("[v0] Error getting unread count:", error)
+    return 0
+  }
+
+  return count || 0
 }

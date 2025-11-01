@@ -56,7 +56,7 @@ export default function BookingPage() {
     try {
       return createClient()
     } catch (err) {
-      console.error("[v0] Failed to create Supabase client:", err)
+      console.error("Failed to create Supabase client:", err)
       return null
     }
   }, [])
@@ -64,7 +64,16 @@ export default function BookingPage() {
   useEffect(() => {
     loadBookableAvailability()
     checkAuth()
-  }, [params.token])
+
+    // Listen for auth state changes (e.g., after redirect from login)
+    const { data: { subscription } } = supabase?.auth.onAuthStateChange(() => {
+      checkAuth()
+    }) || { data: { subscription: null } }
+
+    return () => {
+      subscription?.unsubscribe()
+    }
+  }, [params.token, supabase])
 
   const checkAuth = async () => {
     if (!supabase) return
@@ -112,8 +121,8 @@ export default function BookingPage() {
       })
 
       toast({
-        title: "Time booked!",
-        description: "Your booking request has been sent. You'll be notified when it's confirmed.",
+        title: "Booking confirmed!",
+        description: "Added to your plans. Go to the Plans tab to see it.",
       })
 
       router.push("/")
@@ -194,7 +203,6 @@ export default function BookingPage() {
         </Card>
 
         <div className="space-y-3">
-          <h2 className="text-lg font-semibold">Select a time</h2>
           {bookableAvailability.time_slots.map((slot, index) => (
             <Card
               key={index}

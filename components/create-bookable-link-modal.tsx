@@ -15,7 +15,7 @@ import { useToast } from "@/hooks/use-toast"
 import { Flame, Moon, Monitor, CalendarIcon, Plus, X, Clock } from "lucide-react"
 import { createBookableAvailability, type TimeSlot } from "@/lib/api/bookable-availability"
 import type { EnergyLevel } from "@/lib/api/availability"
-import { generateTimeOptions, formatTime12Hour } from "@/lib/utils/timezone"
+import { generateTimeOptions, formatTime12Hour, formatTime24Hour } from "@/lib/utils/timezone"
 
 type CreateBookableLinkModalProps = {
   open: boolean
@@ -58,7 +58,18 @@ const energyLevels = [
 
 const activityTypes = ["Dinner", "Drinks", "Coffee", "Lunch", "Brunch", "Walk", "Workout", "Movie", "Gaming", "Study"]
 
-const timeOptions = generateTimeOptions()
+// Generate time options in 24-hour format for internal use
+const generateTime24HourOptions = (): string[] => {
+  const options: string[] = []
+  for (let hour = 0; hour < 24; hour++) {
+    for (let minute = 0; minute < 60; minute += 30) {
+      options.push(`${hour.toString().padStart(2, "0")}:${minute.toString().padStart(2, "0")}`)
+    }
+  }
+  return options
+}
+
+const timeOptions24Hour = generateTime24HourOptions()
 
 export function CreateBookableLinkModal({ open, onOpenChange, onSuccess }: CreateBookableLinkModalProps) {
   const [title, setTitle] = useState("")
@@ -141,24 +152,21 @@ export function CreateBookableLinkModal({ open, onOpenChange, onSuccess }: Creat
 
       const shareUrl = `${window.location.origin}/book/${bookableAvailability.share_token}`
 
-      if (navigator.share) {
-        await navigator.share({
-          title: `Book time with me: ${title}`,
-          text: `I'm free for ${activityType.toLowerCase()}! Pick a time that works for you.`,
-          url: shareUrl,
-        })
-      } else {
+      try {
         await navigator.clipboard.writeText(shareUrl)
+        // Only show success message after successful copy
         toast({
           title: "Link copied!",
           description: "Share this link with your friends.",
         })
+      } catch (error: any) {
+        console.error('[v0] Copy error:', error)
+        toast({
+          title: "Failed to copy link",
+          description: error.message || "Please try again.",
+          variant: "destructive",
+        })
       }
-
-      toast({
-        title: "Bookable link created!",
-        description: "Your link has been created and is ready to share.",
-      })
 
       setTitle("")
       setDescription("")
@@ -286,7 +294,7 @@ export function CreateBookableLinkModal({ open, onOpenChange, onSuccess }: Creat
                       <SelectValue placeholder="Select start time" />
                     </SelectTrigger>
                     <SelectContent className="max-h-[200px]">
-                      {timeOptions.map((time) => (
+                      {timeOptions24Hour.map((time) => (
                         <SelectItem key={time} value={time}>
                           {formatTime12Hour(time)}
                         </SelectItem>
@@ -303,7 +311,7 @@ export function CreateBookableLinkModal({ open, onOpenChange, onSuccess }: Creat
                       <SelectValue placeholder="Select end time" />
                     </SelectTrigger>
                     <SelectContent className="max-h-[200px]">
-                      {timeOptions.map((time) => (
+                      {timeOptions24Hour.map((time) => (
                         <SelectItem key={time} value={time}>
                           {formatTime12Hour(time)}
                         </SelectItem>

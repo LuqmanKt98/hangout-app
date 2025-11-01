@@ -13,8 +13,6 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { toast } from "@/components/ui/use-toast"
 import { Calendar } from "@/components/ui/calendar"
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
-import { MessageSquare } from "lucide-react"
-import { MessageThread } from "@/components/message-thread"
 import { getConfirmedPlans, getFriendsAvailability } from "@/lib/api/plans"
 import { createHangoutRequest, getRequestStatusForAvailability } from "@/lib/api/requests"
 import { createClient as createBrowserClient } from "@/lib/supabase/client"
@@ -38,11 +36,6 @@ export function PlansTab() {
   const [friendHangoutsCount, setFriendHangoutsCount] = useState(0)
   const [friendGroupsCount, setFriendGroupsCount] = useState(0)
   const [friendRequestStatus, setFriendRequestStatus] = useState<string | null>(null)
-  const [showMessageThread, setShowMessageThread] = useState(false)
-  const [messageThreadId, setMessageThreadId] = useState("")
-  const [messageThreadRequestId, setMessageThreadRequestId] = useState<string | undefined>(undefined)
-  const [messageThreadFriend, setMessageThreadFriend] = useState<any>(null)
-  const [messageThreadDetails, setMessageThreadDetails] = useState<any>(null)
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
@@ -522,46 +515,13 @@ export function PlansTab() {
     return selectedWeekStart.toDateString() === todayWeekStart.toDateString()
   }
 
-  const handleOpenMessageThread = (plan: any) => {
-    const threadId = `plan_${plan.id}`
-    setMessageThreadId(threadId)
-    setMessageThreadRequestId(plan.id) // Set the request ID for messaging
-    setMessageThreadFriend(plan.friend)
-    setMessageThreadDetails({
-      date:
-        typeof plan.date === "string"
-          ? plan.date
-          : plan.date.toLocaleDateString("en-US", {
-              weekday: "long",
-              month: "long",
-              day: "numeric",
-            }),
-      time: plan.time,
-      location: plan.location,
-      status: plan.status,
-    })
-    setShowMessageThread(true)
-  }
+
 
   const handleInviteFriends = async () => {
     const appUrl = typeof window !== "undefined" ? window.location.origin : ""
     const inviteMessage = `Hey! I've been using this app to coordinate hangouts with friends and thought you'd like it too. Check it out: ${appUrl}`
 
-    if (navigator.share && navigator.canShare) {
-      try {
-        await navigator.share({
-          title: "Join me on Hangout!",
-          text: inviteMessage,
-          url: appUrl,
-        })
-      } catch (error) {
-        if ((error as Error).name !== "AbortError") {
-          handleCopyInvite(inviteMessage)
-        }
-      }
-    } else {
-      handleCopyInvite(inviteMessage)
-    }
+    handleCopyInvite(inviteMessage)
   }
 
   const handleCopyInvite = async (message: string) => {
@@ -1054,18 +1014,7 @@ export function PlansTab() {
                             <span>{plan.location}</span>
                           </div>
                         </div>
-                        <Button
-                          size="sm"
-                          variant="outline"
-                          className="w-full bg-transparent"
-                          onClick={() => {
-                            setShowDayModal(false)
-                            handleOpenMessageThread(plan)
-                          }}
-                        >
-                          <MessageSquare className="w-4 h-4 mr-2" />
-                          Message {plan.friend.name}
-                        </Button>
+
                       </div>
                     </div>
                   </Card>
@@ -1083,14 +1032,7 @@ export function PlansTab() {
         </DialogContent>
       </Dialog>
 
-      <MessageThread
-        open={showMessageThread}
-        onOpenChange={setShowMessageThread}
-        threadId={messageThreadId}
-        requestId={messageThreadRequestId}
-        friend={messageThreadFriend || { name: "", initials: "" }}
-        hangoutDetails={messageThreadDetails}
-      />
+
     </div>
   )
 }

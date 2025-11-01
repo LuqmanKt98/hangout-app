@@ -167,20 +167,51 @@ export async function createBooking(data: {
   } = await supabase.auth.getUser()
   if (!user) throw new Error("Not authenticated")
 
+  // First, get the bookable availability to find the owner
+  const { data: bookableAvail, error: availError } = await supabase
+    .from("bookable_availability")
+    .select("user_id, title, activity_type")
+    .eq("id", data.bookable_availability_id)
+    .single()
+
+  if (availError || !bookableAvail) throw new Error("Bookable availability not found")
+
+  // Create the booking
   const { data: booking, error } = await supabase
-    .from("bookings")
+    .from("bookable_bookings")
     .insert({
       bookable_availability_id: data.bookable_availability_id,
       booked_by_user_id: user.id,
-      guest_name: data.guest_name || null,
-      guest_contact: data.guest_contact || null,
-      selected_slot: data.selected_slot,
-      status: "pending",
+      time_slot: JSON.stringify(data.selected_slot),
     })
     .select()
     .single()
 
   if (error) throw error
+
+  // Create a hangout_request to add the plan to the user's plans
+  try {
+    const { error: requestError } = await supabase
+      .from("hangout_requests")
+      .insert({
+        sender_id: user.id,
+        receiver_id: bookableAvail.user_id,
+        request_date: data.selected_slot.date,
+        start_time: data.selected_slot.start_time,
+        end_time: data.selected_slot.end_time,
+        message: `Booking from: ${bookableAvail.title}`,
+        status: "accepted", // Auto-accept bookings from bookable links
+      })
+
+    if (requestError) {
+      console.error("[v0] Error creating hangout request for booking:", requestError)
+      // Don't throw - the booking was created successfully
+    }
+  } catch (err) {
+    console.error("[v0] Error creating hangout request:", err)
+    // Don't throw - the booking was created successfully
+  }
+
   return booking as Booking
 }
 
@@ -188,7 +219,7 @@ export async function getBookingsForBookableAvailability(bookableAvailabilityId:
   const supabase = createBrowserClient()
 
   const { data, error } = await supabase
-    .from("bookings")
+    .from("bookable_bookings")
     .select(`
       *,
       profile:profiles(id, display_name, avatar_url)
@@ -204,7 +235,7 @@ export async function updateBookingStatus(id: string, status: Booking["status"])
   const supabase = createBrowserClient()
 
   const { data: booking, error } = await supabase
-    .from("bookings")
+    .from("bookable_bookings")
     .update({ status, updated_at: new Date().toISOString() })
     .eq("id", id)
     .select()

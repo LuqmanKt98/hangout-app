@@ -6,7 +6,7 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
-import { Calendar, MapPin, MessageSquare, X, Check, Inbox, Flame, Moon, Monitor, ArrowRight } from "lucide-react"
+import { Calendar, MapPin, X, Check, Inbox, Flame, Moon, Monitor, ArrowRight } from "lucide-react"
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import { useToast } from "@/hooks/use-toast"
 import {
@@ -19,7 +19,6 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog"
-import { MessageThread } from "@/components/message-thread"
 import { formatTime12Hour } from "@/lib/utils/timezone"
 import {
   getReceivedRequests,
@@ -31,6 +30,7 @@ import {
 import { type EnergyLevel } from "@/lib/api/availability"
 import { getReceivedFriendRequests, getSentFriendRequests, acceptFriendRequest, declineFriendRequest } from "@/lib/api/friends"
 import { createClient } from "@/lib/supabase/client"
+import { useUnreadMessages } from "@/lib/hooks/use-unread-messages"
 
 export function RequestsTab() {
   console.log("[v0] RequestsTab: Component rendered")
@@ -42,8 +42,6 @@ export function RequestsTab() {
   const [sentFriendRequests, setSentFriendRequests] = useState<any[]>([])
   const [selectedRequest, setSelectedRequest] = useState<RequestWithProfile | null>(null)
   const [showDetailModal, setShowDetailModal] = useState(false)
-  const [showMessageThread, setShowMessageThread] = useState(false)
-  const [messageThreadId, setMessageThreadId] = useState("")
   const [showDeclineDialog, setShowDeclineDialog] = useState(false)
   const [requestToDecline, setRequestToDecline] = useState<string | null>(null)
   const [showDeleteDialog, setShowDeleteDialog] = useState(false)
@@ -51,6 +49,7 @@ export function RequestsTab() {
   const [showClearAllDialog, setShowClearAllDialog] = useState(false)
   const [clearType, setClearType] = useState<'sent' | 'received' | null>(null)
   const { toast } = useToast()
+  const { unreadCounts, totalUnread, markAsRead } = useUnreadMessages()
 
   useEffect(() => {
     console.log("[v0] RequestsTab: useEffect called, loading requests")
@@ -323,11 +322,6 @@ export function RequestsTab() {
     }
   }
 
-  const handleOpenChat = (request: RequestWithProfile) => {
-    setSelectedRequest(request)
-    setShowMessageThread(true)
-  }
-
   const handleViewPlans = () => {
     window.dispatchEvent(new CustomEvent("switchTab", { detail: "plans" }))
   }
@@ -510,9 +504,7 @@ export function RequestsTab() {
                               <X className="w-4 h-4 mr-1" />
                               Decline
                             </Button>
-                            <Button size="sm" variant="ghost" className="px-3" onClick={() => handleOpenChat(request)}>
-                              <MessageSquare className="w-4 h-4" />
-                            </Button>
+
                           </div>
                         )}
 
@@ -553,7 +545,6 @@ export function RequestsTab() {
                               <h3 className="font-semibold text-sm sm:text-base text-foreground">
                                 {request.sender?.display_name}
                               </h3>
-                              <p className="text-xs sm:text-sm text-muted-foreground">{request.sender?.id}</p>
                             </div>
                           </div>
 
@@ -795,7 +786,6 @@ export function RequestsTab() {
                               <h3 className="font-semibold text-sm sm:text-base text-foreground">
                                 {request.receiver?.display_name}
                               </h3>
-                              <p className="text-xs sm:text-sm text-muted-foreground">{request.receiver?.id}</p>
                             </div>
                             <Badge variant="secondary" className="bg-muted">
                               Pending
@@ -889,55 +879,14 @@ export function RequestsTab() {
                   </div>
                 )}
 
-                <Button
-                  className="w-full bg-primary hover:bg-primary/90"
-                  onClick={() => {
-                    setShowDetailModal(false)
-                    handleOpenChat(selectedRequest)
-                  }}
-                >
-                  <MessageSquare className="w-4 h-4 sm:w-5 sm:h-5 mr-2 sm:mr-3" />
-                  Send Message
-                </Button>
+
               </>
             )}
           </div>
         </DialogContent>
       </Dialog>
 
-      <MessageThread
-        open={showMessageThread}
-        onOpenChange={setShowMessageThread}
-        friendId={
-          selectedRequest
-            ? activeView === "received"
-              ? selectedRequest.sender_id
-              : selectedRequest.receiver_id
-            : undefined
-        }
-        requestId={selectedRequest?.id}
-        friend={
-          selectedRequest
-            ? activeView === "received"
-              ? selectedRequest.sender
-              : selectedRequest.receiver
-            : { display_name: "", avatar_url: null }
-        }
-        hangoutDetails={
-          selectedRequest
-            ? {
-                date: new Date(selectedRequest.requested_date).toLocaleDateString("en-US", {
-                  weekday: "long",
-                  month: "long",
-                  day: "numeric",
-                }),
-                time: selectedRequest.requested_start_time,
-                location: (selectedRequest as any).location || "",
-                status: selectedRequest.status,
-              }
-            : undefined
-        }
-      />
+
 
       <AlertDialog open={showDeclineDialog} onOpenChange={setShowDeclineDialog}>
         <AlertDialogContent>

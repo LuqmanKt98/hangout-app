@@ -8,7 +8,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import Link from "next/link"
-import { useRouter } from "next/navigation"
+import { useRouter, useSearchParams } from "next/navigation"
 import { useState, useEffect, useMemo } from "react"
 import { ensureProfileExists } from "@/lib/api/profile"
 
@@ -20,6 +20,8 @@ export default function LoginPage() {
   const [error, setError] = useState<string | null>(null)
   const [isLoading, setIsLoading] = useState(false)
   const router = useRouter()
+  const searchParams = useSearchParams()
+  const redirect = searchParams.get("redirect") || "/"
 
   const supabase = useMemo(() => {
     try {
@@ -70,7 +72,7 @@ export default function LoginPage() {
           console.error("[v0] Failed to create profile:", profileError)
         }
 
-        router.replace("/")
+        router.replace(redirect)
       }
     } catch (error: unknown) {
       setError(error instanceof Error ? error.message : "An error occurred")

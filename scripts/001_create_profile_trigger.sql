@@ -17,6 +17,7 @@ BEGIN
     location,
     phone,
     timezone,
+    available_now,
     created_at,
     updated_at
   )
@@ -29,6 +30,7 @@ BEGIN
     COALESCE(NEW.raw_user_meta_data->>'location', ''),
     COALESCE(NEW.raw_user_meta_data->>'phone', ''),
     COALESCE(NEW.raw_user_meta_data->>'timezone', 'America/New_York'),
+    false,
     NOW(),
     NOW()
   );

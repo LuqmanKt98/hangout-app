@@ -8,7 +8,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import Link from "next/link"
-import { useRouter } from "next/navigation"
+import { useRouter, useSearchParams } from "next/navigation"
 import { useState, useEffect, useMemo } from "react"
 
 export const dynamic = "force-dynamic"
@@ -23,6 +23,8 @@ export default function SignupPage() {
   const [error, setError] = useState<string | null>(null)
   const [isLoading, setIsLoading] = useState(false)
   const router = useRouter()
+  const searchParams = useSearchParams()
+  const redirect = searchParams.get("redirect") || "/"
 
   const supabase = useMemo(() => {
     try {
@@ -59,11 +61,17 @@ export default function SignupPage() {
     setError(null)
 
     try {
+      const redirectUrl = process.env.NEXT_PUBLIC_DEV_SUPABASE_REDIRECT_URL || `${window.location.origin}/`
+      const emailRedirectUrl = new URL(redirectUrl)
+      if (redirect !== "/") {
+        emailRedirectUrl.searchParams.set("redirect", redirect)
+      }
+
       const { error } = await supabase.auth.signUp({
         email,
         password,
         options: {
-          emailRedirectTo: process.env.NEXT_PUBLIC_DEV_SUPABASE_REDIRECT_URL || `${window.location.origin}/`,
+          emailRedirectTo: emailRedirectUrl.toString(),
           data: {
             first_name: firstName,
             last_name: lastName,
@@ -74,7 +82,7 @@ export default function SignupPage() {
         },
       })
       if (error) throw error
-      router.replace("/auth/verify-email")
+      router.replace(`/auth/verify-email?redirect=${encodeURIComponent(redirect)}`)
     } catch (error: unknown) {
       setError(error instanceof Error ? error.message : "An error occurred")
     } finally {

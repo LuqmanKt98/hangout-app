@@ -19,6 +19,7 @@ import {
   X,
   Link2,
   Copy,
+  Edit,
 } from "lucide-react"
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog"
 import { Label } from "@/components/ui/label"
@@ -47,14 +48,15 @@ import {
   deleteAvailability,
   getMyAvailability,
   createSharedAvailability,
-  getAvailabilitySharedFriends, // Import added
+  getAvailabilitySharedFriends,
+  getAvailabilitySharedGroups,
   type Availability,
   type EnergyLevel as ApiEnergyLevel,
 } from "@/lib/api/availability"
 import { setAvailableNow, type Profile } from "@/lib/api/profile"
 import { createClient } from "@/lib/supabase/client"
 import { CreateBookableLinkModal } from "@/components/create-bookable-link-modal"
-import { getMyBookableAvailability, type BookableAvailability } from "@/lib/api/bookable-availability"
+import { getMyBookableAvailability, deleteBookableAvailability, updateBookableAvailability, type BookableAvailability } from "@/lib/api/bookable-availability"
 import { getFriends } from "@/lib/api/friends"
 import { getMyGroups, type GroupWithMembers } from "@/lib/api/groups"
 import { getCurrentTimeRounded, getTwoHoursLater, generateTimeOptions, formatTime12Hour } from "@/lib/utils/timezone"
@@ -83,9 +85,16 @@ export function AvailabilityTab() {
   const [selectedGroups, setSelectedGroups] = useState<string[]>([])
   const [availableNowEnergy, setAvailableNowEnergy] = useState<ApiEnergyLevel>("low")
   const [showAvailableNowModal, setShowAvailableNowModal] = useState(false)
+  const [showDeleteBookableDialog, setShowDeleteBookableDialog] = useState(false)
+  const [bookableToDelete, setBookableToDelete] = useState<string | null>(null)
+  const [showEditBookableModal, setShowEditBookableModal] = useState(false)
+  const [editingBookable, setEditingBookable] = useState<BookableAvailability | null>(null)
   const [availabilitySlots, setAvailabilitySlots] = useState<Availability[]>([])
   const [sharedFriendsMap, setSharedFriendsMap] = useState<
     Record<string, Array<{ id: string; name: string; avatar: string | null }>>
+  >({})
+  const [sharedGroupsMap, setSharedGroupsMap] = useState<
+    Record<string, Array<{ id: string; name: string }>>
   >({})
   const [showDeleteDialog, setShowDeleteDialog] = useState(false)
   const [slotToDelete, setSlotToDelete] = useState<string | null>(null)
@@ -219,11 +228,15 @@ export function AvailabilityTab() {
       setAvailabilitySlots(filteredData)
 
       const friendsMap: Record<string, Array<{ id: string; name: string; avatar: string | null }>> = {}
+      const groupsMap: Record<string, Array<{ id: string; name: string }>> = {}
       for (const slot of filteredData) {
         const sharedFriends = await getAvailabilitySharedFriends(slot.id)
+        const sharedGroups = await getAvailabilitySharedGroups(slot.id)
         friendsMap[slot.id] = sharedFriends
+        groupsMap[slot.id] = sharedGroups
       }
       setSharedFriendsMap(friendsMap)
+      setSharedGroupsMap(groupsMap)
     } catch (error) {
       console.error("[v0] Error loading availability:", error)
       toast({
@@ -249,6 +262,20 @@ export function AvailabilityTab() {
         const { data: profileData } = await supabase.from("profiles").select("*").eq("id", user.id).single()
         if (profileData) {
           console.log("[v0] Profile loaded")
+          
+          // Check if Available Now has expired
+          if (profileData.available_now && profileData.available_now_until) {
+            const untilDate = new Date(profileData.available_now_until)
+            const now = new Date()
+            if (now >= untilDate) {
+              console.log("[v0] Available Now has expired, turning off")
+              await setAvailableNow(false)
+              profileData.available_now = false
+              profileData.available_now_energy = null
+              profileData.available_now_until = null
+            }
+          }
+          
           setProfile(profileData)
           setIsAvailableNow(profileData.available_now || false)
           if (profileData.available_now_energy) {
@@ -447,19 +474,11 @@ export function AvailabilityTab() {
       const endTime12 = formatTime12Hour(slot.end_time)
       const shareText = `I'm free ${new Date(slot.date).toLocaleDateString()} from ${startTime12} - ${endTime12} for ${energyConfig.label.toLowerCase()} hangouts! Check it out: ${shareUrl}`
 
-      if (navigator.share) {
-        await navigator.share({ text: shareText })
-        toast({
-          title: "Shared!",
-          description: "Your availability has been shared with a link.",
-        })
-      } else {
-        await navigator.clipboard.writeText(shareText)
-        toast({
-          title: "Copied to clipboard!",
-          description: "Share this link with your friends.",
-        })
-      }
+      await navigator.clipboard.writeText(shareText)
+      toast({
+        title: "Copied to clipboard!",
+        description: "Share this link with your friends.",
+      })
     } catch (error: any) {
       toast({
         title: "Failed to share",
@@ -561,24 +580,34 @@ export function AvailabilityTab() {
         location: null,
       })
 
-      if (shareMode === "friends" && selectedFriends.length > 0) {
+      // Share with both friends and groups if selected
+      if (selectedFriends.length > 0) {
         console.log("[v0] Sharing availability with friends:", selectedFriends)
         const { shareAvailabilityWithFriends } = await import("@/lib/api/availability")
         const shareResult = await shareAvailabilityWithFriends(availability.id, selectedFriends)
         console.log("[v0] Share result:", shareResult)
-      } else if (shareMode === "groups" && selectedGroups.length > 0) {
+      }
+
+      if (selectedGroups.length > 0) {
         console.log("[v0] Sharing availability with groups:", selectedGroups)
         const { shareAvailabilityWithGroups } = await import("@/lib/api/availability")
         const shareResult = await shareAvailabilityWithGroups(availability.id, selectedGroups)
         console.log("[v0] Share result:", shareResult)
       }
 
-      const shareCount = shareMode === "friends" ? selectedFriends.length : selectedGroups.length
-      const shareType = shareMode === "friends" ? "friend" : "group"
+      const totalShareCount = selectedFriends.length + selectedGroups.length
+      const shareDescriptions = []
+      if (selectedFriends.length > 0) {
+        shareDescriptions.push(`${selectedFriends.length} friend${selectedFriends.length > 1 ? "s" : ""}`)
+      }
+      if (selectedGroups.length > 0) {
+        shareDescriptions.push(`${selectedGroups.length} group${selectedGroups.length > 1 ? "s" : ""}`)
+      }
+      const shareDescription = shareDescriptions.join(" and ")
 
       toast({
         title: "Availability added!",
-        description: `Your ${selectedDate.toLocaleDateString()} availability has been added${shareCount > 0 ? ` and shared with ${shareCount} ${shareType}${shareCount > 1 ? "s" : ""}` : ""}.`,
+        description: `Your ${selectedDate.toLocaleDateString()} availability has been added${totalShareCount > 0 ? ` and shared with ${shareDescription}` : ""}.`,
       })
 
       setShowAddModal(false)
@@ -760,20 +789,19 @@ export function AvailabilityTab() {
   const copyBookableLink = async (token: string, title: string) => {
     const shareUrl = `${window.location.origin}/book/${token}`
 
-    if (navigator.share) {
-      await navigator.share({
-        title: `Book time with me: ${title}`,
-        url: shareUrl,
-      })
-      toast({
-        title: "Shared!",
-        description: "Your bookable link has been shared.",
-      })
-    } else {
+    try {
       await navigator.clipboard.writeText(shareUrl)
+      // Only show success message after successful copy
       toast({
         title: "Link copied!",
         description: "Share this link with your friends.",
+      })
+    } catch (error: any) {
+      console.error('[v0] Copy error:', error)
+      toast({
+        title: "Failed to copy link",
+        description: error.message || "Please try again.",
+        variant: "destructive",
       })
     }
   }
@@ -1067,6 +1095,28 @@ export function AvailabilityTab() {
                       >
                         <Copy className="w-4 h-4" />
                       </Button>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => {
+                          setEditingBookable(link)
+                          setShowEditBookableModal(true)
+                        }}
+                        className="h-8 w-8 p-0"
+                      >
+                        <Edit className="w-4 h-4" />
+                      </Button>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => {
+                          setBookableToDelete(link.id)
+                          setShowDeleteBookableDialog(true)
+                        }}
+                        className="h-8 w-8 p-0 text-destructive hover:text-destructive"
+                      >
+                        <Trash2 className="w-4 h-4" />
+                      </Button>
                     </div>
                   </div>
                 </Card>
@@ -1095,6 +1145,17 @@ export function AvailabilityTab() {
               const energyConfig = getEnergyConfig(slot.energy_level)
               const EnergyIcon = energyConfig.icon
               const sharedFriends = sharedFriendsMap[slot.id] || []
+              const sharedGroups = sharedGroupsMap[slot.id] || []
+
+              // Build shared with text combining friends and groups
+              const sharedWithParts: string[] = []
+              if (sharedFriends.length > 0) {
+                sharedWithParts.push(sharedFriends.map((f) => f.name.split(" ")[0]).join(", "))
+              }
+              if (sharedGroups.length > 0) {
+                sharedWithParts.push(sharedGroups.map((g) => g.name).join(", "))
+              }
+              const sharedWithText = sharedWithParts.join(" • ")
 
               return (
                 <Card
@@ -1141,10 +1202,10 @@ export function AvailabilityTab() {
                           {formatTime12Hour(slot.start_time)} - {formatTime12Hour(slot.end_time)}
                         </span>
                       </div>
-                      {sharedFriends.length > 0 && (
+                      {(sharedFriends.length > 0 || sharedGroups.length > 0) && (
                         <div className="flex items-center gap-2 text-xs text-muted-foreground mb-2">
                           <Users className="w-4 h-4" />
-                          <span>Shared with: {sharedFriends.map((f) => f.name.split(" ")[0]).join(", ")}</span>
+                          <span>Shared with: {sharedWithText}</span>
                         </div>
                       )}
                     </div>
@@ -1870,6 +1931,131 @@ export function AvailabilityTab() {
         onOpenChange={setShowCreateBookableModal}
         onSuccess={loadBookableLinks}
       />
+
+      <AlertDialog open={showDeleteBookableDialog} onOpenChange={setShowDeleteBookableDialog}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete bookable link?</AlertDialogTitle>
+            <AlertDialogDescription>
+              Are you sure you want to delete this bookable link? This action cannot be undone and the link will no longer work.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={async () => {
+                if (!bookableToDelete) return
+                try {
+                  await deleteBookableAvailability(bookableToDelete)
+                  toast({
+                    title: "Bookable link deleted",
+                    description: "Your bookable link has been removed.",
+                  })
+                  setShowDeleteBookableDialog(false)
+                  setBookableToDelete(null)
+                  loadBookableLinks()
+                } catch (error: any) {
+                  toast({
+                    title: "Failed to delete",
+                    description: error.message || "Please try again.",
+                    variant: "destructive",
+                  })
+                }
+              }}
+              className="bg-destructive hover:bg-destructive/90 text-destructive-foreground"
+            >
+              Delete
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      <Dialog open={showEditBookableModal} onOpenChange={setShowEditBookableModal}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>Edit Bookable Link</DialogTitle>
+            <DialogDescription>Update your bookable link status</DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4 pt-4">
+            {editingBookable && (
+              <>
+                <div className="space-y-2">
+                  <Label className="text-xs font-semibold">Title</Label>
+                  <p className="text-sm font-medium">{editingBookable.title}</p>
+                </div>
+                {editingBookable.description && (
+                  <div className="space-y-2">
+                    <Label className="text-xs font-semibold">Description</Label>
+                    <p className="text-sm text-muted-foreground">{editingBookable.description}</p>
+                  </div>
+                )}
+                <div className="grid grid-cols-2 gap-3">
+                  <div className="space-y-2">
+                    <Label className="text-xs font-semibold">Activity</Label>
+                    <p className="text-sm">{editingBookable.activity_type}</p>
+                  </div>
+                  <div className="space-y-2">
+                    <Label className="text-xs font-semibold">Energy Level</Label>
+                    <p className="text-sm capitalize">{editingBookable.energy_level}</p>
+                  </div>
+                </div>
+              </>
+            )}
+            <div className="space-y-2 pt-2 border-t">
+              <Label>Link Status</Label>
+              <div className="flex items-center justify-between p-3 border rounded-lg">
+                <div>
+                  <p className="font-medium text-sm">Active</p>
+                  <p className="text-xs text-muted-foreground">Link is currently {editingBookable?.is_active ? 'active' : 'inactive'}</p>
+                </div>
+                <Switch
+                  checked={editingBookable?.is_active || false}
+                  onCheckedChange={async (checked) => {
+                    if (!editingBookable) return
+                    try {
+                      await updateBookableAvailability(editingBookable.id, { is_active: checked })
+                      setEditingBookable({ ...editingBookable, is_active: checked })
+                      toast({
+                        title: checked ? "Link activated" : "Link deactivated",
+                        description: checked ? "Your bookable link is now active." : "Your bookable link has been deactivated.",
+                      })
+                      loadBookableLinks()
+                    } catch (error: any) {
+                      toast({
+                        title: "Failed to update",
+                        description: error.message || "Please try again.",
+                        variant: "destructive",
+                      })
+                    }
+                  }}
+                />
+              </div>
+            </div>
+            <div className="flex gap-2 pt-2">
+              <Button
+                variant="outline"
+                className="flex-1 bg-transparent"
+                onClick={() => setShowEditBookableModal(false)}
+              >
+                Close
+              </Button>
+              <Button
+                variant="destructive"
+                className="flex-1"
+                onClick={() => {
+                  if (editingBookable) {
+                    setBookableToDelete(editingBookable.id)
+                    setShowDeleteBookableDialog(true)
+                    setShowEditBookableModal(false)
+                  }
+                }}
+              >
+                Delete
+              </Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   )
 }

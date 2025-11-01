@@ -34,6 +34,7 @@ interface MessageThreadProps {
     location: string
     status?: string
   }
+  onMarkAsRead?: (requestId: string) => Promise<void>
 }
 
 export function MessageThread({
@@ -44,6 +45,7 @@ export function MessageThread({
   requestId,
   friend,
   hangoutDetails,
+  onMarkAsRead,
 }: MessageThreadProps) {
   const [threadId, setThreadId] = useState<string | undefined>(initialThreadId)
   const [messages, setMessages] = useState<MessageWithProfile[]>([])
@@ -114,7 +116,12 @@ export function MessageThread({
         // Use requestId directly - no need to create threads
         setThreadId(requestId)
         await loadMessages()
-        await markMessagesAsRead(requestId)
+        // Use the onMarkAsRead callback if provided, otherwise fall back to the API function
+        if (onMarkAsRead) {
+          await onMarkAsRead(requestId)
+        } else {
+          await markMessagesAsRead(requestId)
+        }
       }
     } catch (error) {
       console.error("Error initializing thread:", error)
@@ -291,26 +298,36 @@ export function MessageThread({
         </div>
 
         <div className="px-6 py-4 border-t border-border/50">
-          <div className="flex gap-2">
-            <Textarea
-              placeholder="Type your message..."
-              value={newMessage}
-              onChange={(e) => setNewMessage(e.target.value)}
-              onKeyDown={handleKeyPress}
-              rows={2}
-              className="resize-none"
-              disabled={isLoading}
-            />
-            <Button
-              size="icon"
-              className="bg-primary hover:bg-primary/90 shrink-0 h-auto"
-              onClick={handleSendMessage}
-              disabled={!newMessage.trim() || isLoading}
-            >
-              <Send className="w-4 h-4" />
-            </Button>
-          </div>
-          <p className="text-xs text-muted-foreground mt-2">Press Enter to send, Shift+Enter for new line</p>
+          {hangoutDetails?.status !== "accepted" ? (
+            <div className="bg-muted/50 rounded-lg p-4 text-center">
+              <p className="text-sm text-muted-foreground">
+                Chat is only available for confirmed hangouts. Once the hangout is confirmed, you'll be able to message.
+              </p>
+            </div>
+          ) : (
+            <>
+              <div className="flex gap-2">
+                <Textarea
+                  placeholder="Type your message..."
+                  value={newMessage}
+                  onChange={(e) => setNewMessage(e.target.value)}
+                  onKeyDown={handleKeyPress}
+                  rows={2}
+                  className="resize-none"
+                  disabled={isLoading}
+                />
+                <Button
+                  size="icon"
+                  className="bg-primary hover:bg-primary/90 shrink-0 h-auto"
+                  onClick={handleSendMessage}
+                  disabled={!newMessage.trim() || isLoading}
+                >
+                  <Send className="w-4 h-4" />
+                </Button>
+              </div>
+              <p className="text-xs text-muted-foreground mt-2">Press Enter to send, Shift+Enter for new line</p>
+            </>
+          )}
         </div>
       </SheetContent>
     </Sheet>
